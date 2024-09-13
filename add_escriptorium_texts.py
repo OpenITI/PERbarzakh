@@ -1305,6 +1305,6 @@ if __name__ == "__main__":
     dest_folder = "."
     add_eScriptorium_files(meta_fp, download_folder, dest_folder,
                            reconvert=True,              # convert even if the file is already in the corpus or barzakh
-                           first_row=568, last_row=568,   # from row X to row Y in the metadata spreadsheet
+                           first_row=685, last_row=685,   # from row X to row Y in the metadata spreadsheet
                            redownload=True             # even if the transcription was already downloaded
                            )
