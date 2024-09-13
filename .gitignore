@@ -1,1 +1,5 @@
+.env
 zips/
+meta/
+eScriptorium_pagexml/
+.DS_Store
