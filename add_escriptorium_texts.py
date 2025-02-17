@@ -764,28 +764,9 @@ def convert_zip(zip_fp, outfp, include_regions=[], exclude_regions=[],
     time.sleep(1)
     shutil.rmtree(temp_folder)
 
-def get_doc_pk(escr, projects=None, document_names=None):
-    print("PROJECTS:", projects)
-    print("DOCUMENT_NAMES:", document_names)
-    if projects:
-        projects = [re.sub("\W", "-", p.lower()) for p in projects]
-        projects = [re.sub("CDH_AOCP_PERSIAN", "persian_texts", p.upper()) for p in projects]
-    doc_i = 0
-    for doc in escr.get_documents().results:
-        doc_i += 1
-        print(doc_i)
-        
-        if not document_names or doc.name in document_names:
-            project = doc.project
-            if not projects or project in projects:
-                print("Document:", doc.name, "(primary key:", doc.pk, ")")
-
-                return doc
-    
-
 def download_transcriptions(escr, download_folder, output_type="pagexml", projects=None,  
                             document_names=None, transcription_layers=None,
-                            redownload=False, document_pk=None):
+                            redownload=False):
     """Download transcriptions from eScriptorium.
 
     Use the transcription_layers, projects and document_names arguments
@@ -805,108 +786,101 @@ def download_transcriptions(escr, download_folder, output_type="pagexml", projec
             in the selected projects).
         transcription_layers (list): names of the transcription layers you want to download.
             Defaults to None (download all transcription layers from the selected documents)
-        document_pk (str): numeric primary key of the eScriptorium document.
 
     Returns:
         None
     """
-    #if not document_pk:
-    doc = get_doc_pk(escr, projects=projects, document_names=document_names)
-    document_pk = doc.pk
-    print("doc_pk:", document_pk)
-    if len(projects) == 1:
-        project = projects[0]
-    else:
-        project = "NA"
+    print("PROJECTS:", projects)
+    print("DOCUMENT_NAMES:", document_names)
+    if projects:
+        projects = [re.sub("\W", "-", p.lower()) for p in projects]
+        projects = [re.sub("cdh_aocp_persian", "persian_texts", p.lower()) for p in projects]
+        print("final list of projects:", projects)
+    fp = None
+    for doc in escr.get_documents().results:
         
-##    print("PROJECTS:", projects)
-##    print("DOCUMENT_NAMES:", document_names)
-##    if projects:
-##        projects = [re.sub("\W", "-", p.lower()) for p in projects]
-##        projects = [re.sub("CDH_AOCP_PERSIAN", "persian_texts", p.upper()) for p in projects]
-##    doc_i = 0
-##    for doc in escr.get_documents().results:
-##        doc_i += 1
-##        print(doc_i)
-##        
-##        if not document_names or doc.name in document_names:
-##            project = doc.project
-##            if not projects or project in projects:
-##                print("Document:", doc.name, "(primary key:", doc.pk, ")")
-##
-##                # get the document's primary key:
-##                document_pk = doc.pk                
+        if not document_names or doc.name in document_names:
+            project = doc.project
+            print('project', project)
+            if not projects or project in projects:
+                print("Document:", doc.name, "(primary key:", doc.pk, ")")
+
+                # get the document's primary key:
+                document_pk = doc.pk                
                 
-    # get all parts (that is, pages) of the document:
-    document_parts = escr.get_document_parts(document_pk).results
-    
-    # select the desired transcription layer:
-    transcriptions = escr.get_document_transcriptions(document_pk)
-    if transcription_layers:
-        # only download the desired transcription layers
-        print("TRANSCRIPTION LAYERS:")
-        try:
-            transcriptions = [t for t in transcriptions if t.name in transcription_layers]
-            print(transcriptions)
-            transcriptions[0]  # will fail if the transcription layer is not present
-        except IndexError :
-            print("None of the requested transcription layers is available")
-            #continue  # skip this document
-            return
+                # get all parts (that is, pages) of the document:
+                document_parts = escr.get_document_parts(document_pk).results
+                
+                # select the desired transcription layer:
+                transcriptions = escr.get_document_transcriptions(document_pk)
+                if transcription_layers:
+                    # only download the desired transcription layers
+                    print("TRANSCRIPTION LAYERS:")
+                    try:
+                        transcriptions = [t for t in transcriptions if t.name in transcription_layers]
+                        print(transcriptions)
+                        transcriptions[0]  # will fail if the transcription layer is not present
+                    except IndexError :
+                        print("None of the requested transcription layers is available")
+                        continue  # skip this document
 
-    # download each transcription layer separately as a zip file:
-    print("Downloading transcription layer(s):")
-    for t in transcriptions:
-        print("* {} (primary key: {})".format(t.name, t.pk))
+                # download each transcription layer separately as a zip file:
+                print("Downloading transcription layer(s):")
+                for t in transcriptions:
+                    print("* {} (primary key: {})".format(t.name, t.pk))
 
-        # create the path to the download location:
-        normalized_transcription_layer = re.sub("""[/<>:"\\|?*]""", "_", t.name)
-        outfolder = os.path.join(download_folder,
-                                 project,
-                                 doc.name,
-                                 normalized_transcription_layer)
-        if not os.path.exists(outfolder):
-            os.makedirs(outfolder)
-        if output_type == "text":
-            fp  = os.path.join(outfolder, "{}_{}.txt".format(doc.name, output_type))
-        else:
-            fp  = os.path.join(outfolder, "{}_{}.zip".format(doc.name, output_type))
-        #print(fp)
+                    # create the path to the download location:
+                    normalized_transcription_layer = re.sub("""[/<>:"\\|?*]""", "_", t.name)
+                    outfolder = os.path.join(download_folder,
+                                             project,
+                                             doc.name,
+                                             normalized_transcription_layer)
+                    if not os.path.exists(outfolder):
+                        os.makedirs(outfolder)
+                    if output_type == "text":
+                        fp  = os.path.join(outfolder, "{}_{}.txt".format(doc.name, output_type))
+                    else:
+                        fp  = os.path.join(outfolder, "{}_{}.zip".format(doc.name, output_type))
+                    #print(fp)
 
-        # store the transcription's metadata as a json file:
-        json_fp = outfolder + "_meta.json"
-        d = {"transcription_layer_pk": t.pk, "transcription_layer_name": t.name, "archived": t.archived, "avg_transcription_confidence": t.avg_confidence}
-        with open(json_fp, mode="w", encoding="utf-8") as file:
-            json.dump(d, file, ensure_ascii=False, indent=2)
+                    # store the transcription's metadata as a json file:
+                    json_fp = outfolder + "_meta.json"
+                    d = {"transcription_layer_pk": t.pk, "transcription_layer_name": t.name, "archived": t.archived, "avg_transcription_confidence": t.avg_confidence}
+                    with open(json_fp, mode="w", encoding="utf-8") as file:
+                        json.dump(d, file, ensure_ascii=False, indent=2)
 
-        if os.path.exists(fp) and not redownload:
-            print("    > already downloaded")
-            continue
-    
-        try:
-            print("    > downloading...")
-            # (this is currently only possible after removing the dunder ("__")
-            # before the `download_part_output_transcription` in the escriptorium.py source code):
-            output_zipped = escr.download_part_output_transcription(document_pk,
-                                                                    [part.pk for part in document_parts],
-                                                                    t.pk,
-                                                                    output_type)
-        except:
-            if output_type == "pagexml":
-                output_zipped = escr.download_part_pagexml_transcription(document_pk,
-                                                                         [part.pk for part in document_parts],
-                                                                         t.pk)
-            elif output_type == "text":
-                output_zipped = escr.download_part_text_transcription(document_pk,
-                                                                      [part.pk for part in document_parts],
-                                                                      t.pk)
-            elif output_type == "alto":
-                output_zipped = escr.download_part_alto_transcription(document_pk,
-                                                                      [part.pk for part in document_parts],
-                                                                      t.pk)
-            else:
-                print("output type '{}' is currently not supported".format(output_type))
-                continue
+                    if os.path.exists(fp) and not redownload:
+                        print("    > already downloaded")
+                        continue
+                
+                    try:
+                        print("    > downloading...")
+                        # (this is currently only possible after removing the dunder ("__")
+                        # before the `download_part_output_transcription` in the escriptorium.py source code):
+                        # so this will always fail; it 
+                        output_zipped = escr.download_part_output_transcription(document_pk,
+                                                                                [part.pk for part in document_parts],
+                                                                                t.pk,
+                                                                                output_type)
+                    except:
+                        if output_type == "pagexml":
+                            print("pagexml")
+                            output_zipped = escr.download_part_pagexml_transcription(document_pk,
+                                                                                     [part.pk for part in document_parts],
+                                                                                     t.pk)
+                        elif output_type == "text":
+                            print("text")
+                            output_zipped = escr.download_part_text_transcription(document_pk,
+                                                                                  [part.pk for part in document_parts],
+                                                                                  t.pk)
+                        elif output_type == "alto":
+                            print("alto")
+                            output_zipped = escr.download_part_alto_transcription(document_pk,
+                                                                                  [part.pk for part in document_parts],
+                                                                                  t.pk)
+                        else:
+                            print("output type '{}' is currently not supported".format(output_type))
+                            continue
 
 ##                    # create the path to the download location:
 ##                    normalized_transcription_layer = re.sub("""[/<>:"\\|?*]""", "_", t.name)
@@ -922,13 +896,12 @@ def download_transcriptions(escr, download_folder, output_type="pagexml", projec
 ##                        fp  = os.path.join(outfolder, "{}_{}.zip".format(doc.name, output_type))
 ##                    print(fp)
                     
-    # store the downloaded zip file at that path:
-    with open(fp,mode="wb") as file:
-        file.write(output_zipped)
-
-
-                        
-                    
+                    # store the downloaded zip file at that path:
+                    if not fp:
+                        print("NO FILEPATH! ABORTING")
+                    else:
+                        with open(fp,mode="wb") as file:
+                            file.write(output_zipped)
     return fp
 
 
@@ -1015,12 +988,15 @@ def add_OCR_pipeline_files(meta_fp, ocr_folder, dest_folder):
                 os.remove(fp+".yml")
 
 def add_eScriptorium_files(meta_fp, download_folder, dest_folder,
-                           first_row=1, last_row=1000, coll_id="AOCP2",
+                           #first_row=1, last_row=1000, 
+                           rows=None,
+                           coll_id="AOCP2",
                            include_regions=[], exclude_regions=["Footnotes",],
                            min_line_overlap=20, line_segment_separator="   ",
                            include_image_name=True, reorder_pages=False,
                            skip_orphan_lines=True, reconvert=False, redownload=False,
-                           main_text_region="Main"):
+                           main_text_region="Main",
+                           default_transcription_layer=None, add_languages=["ara"]):
     """Add files from eScriptorium to barzakh
     
     Args:
@@ -1032,8 +1008,11 @@ def add_eScriptorium_files(meta_fp, download_folder, dest_folder,
             "CORPUS/BARZAKH")
         download_folder (str): path to the folder to which the transcriptions should be downloaded
         dest_folder (str): path to the output folder
-        first_row (int): first row in the metadata table to be processed
-        last_row (int): last row in the metadata table to be processed
+        #first_row (int): first row in the metadata table to be processed
+        #last_row (int): last row in the metadata table to be processed
+        rows (list): list of tuples (first_row, last_row); if defined,
+            only rows starting from first_row and ending at last_row 
+            will be processed. Defaults to None: process all rows
         coll_id (str): the collection ID that will become the first part of the version ID
         include_regions (list): a list of regions from which text needs to be extracted
         exclude_regions (list): a list of regions from which text needs to be dropped
@@ -1054,6 +1033,8 @@ def add_eScriptorium_files(meta_fp, download_folder, dest_folder,
             convered again.
         main_text_region (str): the name of the region that contains the
             main text of the page; defaults to "Main"
+        add_languages (list): if the value in the language code column is
+            not in this list, the row will be skipped.
     """
     print("Connecting to main eScriptorium instance...")
     main_instance = connect_to_escr()
@@ -1068,17 +1049,32 @@ def add_eScriptorium_files(meta_fp, download_folder, dest_folder,
         for row in reader:
             i += 1
             #print("row", i)
-            
-            # do not download/convert rows before first_row:
-            if i < first_row:  
-                #print(row["eScriptorium document name"])
-                continue
+            # if specific rows are mentioned, skip all other rows
+            if rows:
+                skip_row = True
+                for first_row, last_row in rows:
+                    if first_row <= i <= last_row:
+                        skip_row = False
+                        break
+                if skip_row:
+                    continue
+                # do not download/convert rows before first_row:                
+            #if i < first_row:  
+            #    print(row["eScriptorium document name"])
+            #    continue
+
             # do not download/convert already converted texts:
-            elif (row["CORPUS/BARZAKH"] and not reconvert):  
+            #elif (row["CORPUS/BARZAKH"] and not reconvert):  
+            if (row["CORPUS/BARZAKH"] and not reconvert):
                 continue
+
             # do not download/convert texts after the last_row:
-            elif i > last_row:
-                break
+            #elif i > last_row:
+            #    break
+
+            # do not convert texts that are not in the specified languages:
+            if row["language code"] not in add_languages:
+                continue
             print("---------------------")
             print("row", i, "in spreadsheet:")
 
@@ -1088,34 +1084,38 @@ def add_eScriptorium_files(meta_fp, download_folder, dest_folder,
             else:
                 escr = main_instance
 
-            try:
-                doc_pk = re.findall("/document/(\d+)/", row["KITAB PIPELINE / eSCRIPTORIUM"])[0]
-            except:
-                doc_pk = None
-
             # download the transcription from eScriptorium:
 
             project = row["eScriptorium project name"]
             doc = row["eScriptorium document name"]
             layer = row["eScriptorium transcription layer"]
             if not layer:
-                print(doc, "NOT DOWNLOADING: no transcription layer defined")
-                continue
+                if default_transcription_layer:
+                    layer = default_transcription_layer
+                else:
+                    print(doc, "NOT DOWNLOADING: no transcription layer defined")
+                    continue
             if row["which regions to include"]:
-                include_regions = re.split(", ", row["which regions to include"])
+                include_regions = re.split("[,;] *", row["which regions to include"])
                 print("REGIONS:", include_regions)
                 if "all" in include_regions:
                     include_regions = "all"
                 else:
                     include_regions = [r for r in include_regions if r]
-            zip_fp = download_transcriptions(escr, download_folder,
+            try:
+                zip_fp = download_transcriptions(escr, download_folder,
                                              output_type="pagexml",
                                              projects=[project,],
                                              document_names=[doc,],
                                              transcription_layers=[layer,],
-                                             redownload=redownload,
-                                             document_pk=doc_pk)
-
+                                             redownload=redownload)
+                if not zip_fp:
+                    print("No zip_fp; ABORTING")
+                    continue
+            except Exception as e:
+                print("ERROR:", e)
+                print("ABORTING DOWNLOAD OF", doc)
+                continue
             #print(project, doc, layer)
 
             # get the transcription layer metadata:
@@ -1288,23 +1288,29 @@ def connect_to_escr(username=None, password=None, url=None):
     escr = EscriptoriumConnector(url, username, password)
     return escr
 
-
-
             
         
 
 
 if __name__ == "__main__":
     meta_fp = "meta/OCR_URIs_2022_2023 - ESCRIPTORIUM (4).tsv"
+    meta_fp = "meta/OCR_URIs_2022_2023 - ESCRIPTORIUM (5).tsv"
 
     
     
 
-
+    
     download_folder = "eScriptorium_pagexml"
     dest_folder = "."
+    rows = [(711,712), (713,714), (717,718),
+            (742,742), (763,764), (767,767),
+            (771,774), (779,779)]
+    #for first, last in rows:
     add_eScriptorium_files(meta_fp, download_folder, dest_folder,
-                           reconvert=True,              # convert even if the file is already in the corpus or barzakh
-                           first_row=685, last_row=685,   # from row X to row Y in the metadata spreadsheet
-                           redownload=True             # even if the transcription was already downloaded
+                           reconvert=True,               # convert even if the file is already in the corpus or barzakh
+                           #first_row=first, last_row=last,   # from row X to row Y in the metadata spreadsheet
+                           rows=rows,
+                           redownload=False,                # even if the transcription was already downloaded
+                           add_languages=["per"],
+                           default_transcription_layer="kraken:all_arabic_scripts"
                            )
