@@ -1305,7 +1305,7 @@ if __name__ == "__main__":
     rows = [(711,712), (713,714), (717,718),
             (742,742), (763,764), (767,767),
             (771,774), (779,779)]
-    rows = [(563,563)]
+    rows = [(764,764)]
     #for first, last in rows:
     add_eScriptorium_files(meta_fp, download_folder, dest_folder,
                            reconvert=True,               # convert even if the file is already in the corpus or barzakh
