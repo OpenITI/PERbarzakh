@@ -4,8 +4,10 @@ import os
 multivol = dict()
 uri_d = dict()
 empty_d = dict()
+book_counter = 0
 for fn in os.listdir("."):
     if re.findall("AOCP", fn) and not fn.endswith(".yml"):
+        book_counter += 1
         book_uri = ".".join(fn.split(".")[:2])
         with open(fn, mode="r", encoding="utf-8") as file:
             text = file.read()
@@ -39,6 +41,18 @@ print("-------------")
 print("Empty pages:")
 for fn in empty_d:
     print(fn, empty_d[fn])
+print(len(empty_d), "books with empty pages, out of", book_counter)
+
+more_than_10 = 0
+more_than_5 = 0
+for fn in empty_d:
+    #print(fn, empty_d[fn])
+    if empty_d[fn] > 10:
+        more_than_10 += 1
+    if empty_d[fn] > 5:
+        more_than_5 += 1
+print(more_than_10, "books with more than 10 empty pages, out of", book_counter)
+print(more_than_5, "books with more than 5 empty pages, out of", book_counter)
 
             
             
