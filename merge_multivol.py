@@ -43,16 +43,20 @@ for fn in empty_d:
     print(fn, empty_d[fn])
 print(len(empty_d), "books with empty pages, out of", book_counter)
 
-more_than_10 = 0
-more_than_5 = 0
+more_than_10 = []
+more_than_5 = []
 for fn in empty_d:
     #print(fn, empty_d[fn])
     if empty_d[fn] > 10:
-        more_than_10 += 1
+        more_than_10.append(fn)
     if empty_d[fn] > 5:
-        more_than_5 += 1
-print(more_than_10, "books with more than 10 empty pages, out of", book_counter)
-print(more_than_5, "books with more than 5 empty pages, out of", book_counter)
+        more_than_5.append(fn)
+print(len(more_than_10), "books with more than 10 empty pages, out of", book_counter)
+print(len(more_than_5), "books with more than 5 empty pages, out of", book_counter)
 
-            
+for fn in more_than_10:
+    os.rename(fn, os.path.join("too_many_missing_pages", fn))
+    fn += ".yml"
+    os.rename(fn, os.path.join("too_many_missing_pages", fn))
+
             
