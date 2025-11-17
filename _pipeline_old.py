@@ -221,6 +221,8 @@ repl_tup = [
     ("⁄", "/"),   # FRACTION SLASH
     ("ھ", "ه"),   # ARABIC LETTER HEH DOACHASHMEE
     ("ٱ", "ا"),   # U+0671 , ARABIC LETTER ALEF WASLA
+    ("ٔا", "أ"),
+    ("ٔا", "أ"),
 
     ("ARABIC LETTER ALEF_ARABIC MADDAH ABOVE", "آ"),
     ("ARABIC MADDAH ABOVE_ARABIC LETTER ALEF WITH HAMZA ABOVE", "اأ"),  # in Qur'ān, e.g. yā-ayyuhā
@@ -1063,4 +1065,5 @@ def main(folder, out_folder, start_date=0, end_date=10000,
 
 if __name__ == "__main__":
     main(folder=r"D:\AKU\OpenITI\PERbarzakh",
+         silent=True,
          out_folder=r"D:\AKU\OpenITI\25Y_repos") # _PER will be added by the script
