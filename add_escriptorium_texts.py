@@ -242,6 +242,11 @@ def parse_lines(root, nsmap, include_regions, fp, exclude_regions=[],
         line_text = etree.tostring(text_line, method="text", encoding='utf-8')
         line_d["text"] = line_text.decode("utf-8")
         
+
+        custom_attr = text_line.get("custom", "")
+        line_d["line_type"] = custom_attr
+        
+        
         # add this line's metadata to the list of lines:
         lines.append(line_d)
 
@@ -568,10 +573,12 @@ def convert_file(fp, include_regions=[], exclude_regions=[], page_offset=0, min_
         # Format the lines and add them to the page text:
         for line in lines:
             line_text = ""
+            is_title = False
             for segm in line:
                 #print('segm["min_x"]:', segm["min_x"], 'segm["max_x"]:', segm["max_x"])
                 #print(segm["text"])
-                if segm["region"] == "Title":
+                if segm["region"] == "Title" or "Heading" in segm["line_type"] or "title" in segm["line_type"]:
+                    is_title = True
                     line_text += "\n### | " + segm["text"].strip()
                 elif segm["region"] == "Main" \
                      and segm["max_x"] < region_midpoints["Main"]:
@@ -587,7 +594,8 @@ def convert_file(fp, include_regions=[], exclude_regions=[], page_offset=0, min_
                     line_text += segm["text"].strip()
                 
             # Check whether the line is the beginning of a paragraph (indentation):
-            if not line[0]["region"] == "Title":
+            #if not line[0]["region"] == "Title":
+            if not is_title:
                 if check_indentation(line[0], indent_offset):
                     #line_text = "# " + line_text[len(line_segment_separator):]
                     line_text = "# " + line_text
@@ -766,7 +774,7 @@ def convert_zip(zip_fp, outfp, include_regions=[], exclude_regions=[],
 
 def download_transcriptions(escr, download_folder, output_type="pagexml", projects=None,  
                             document_names=None, transcription_layers=None,
-                            redownload=False):
+                            redownload=False, escr_documents_cache=None):
     """Download transcriptions from eScriptorium.
 
     Use the transcription_layers, projects and document_names arguments
@@ -797,8 +805,10 @@ def download_transcriptions(escr, download_folder, output_type="pagexml", projec
         projects = [re.sub("cdh_aocp_persian", "persian_texts", p.lower()) for p in projects]
         print("final list of projects:", projects)
     fp = None
-    for doc in escr.get_documents().results:
-        
+    if not escr_documents_cache:
+        print("Downloading metadata of all escriptorium documents...")
+        escr_documents_cache = escr.get_documents().results
+    for doc in escr_documents_cache:
         if not document_names or doc.name in document_names:
             project = doc.project
             print('project', project)
@@ -864,17 +874,17 @@ def download_transcriptions(escr, download_folder, output_type="pagexml", projec
                                                                                 output_type)
                     except:
                         if output_type == "pagexml":
-                            print("pagexml")
+                            print("      pagexml")
                             output_zipped = escr.download_part_pagexml_transcription(document_pk,
                                                                                      [part.pk for part in document_parts],
                                                                                      t.pk)
                         elif output_type == "text":
-                            print("text")
+                            print("      text")
                             output_zipped = escr.download_part_text_transcription(document_pk,
                                                                                   [part.pk for part in document_parts],
                                                                                   t.pk)
                         elif output_type == "alto":
-                            print("alto")
+                            print("      alto")
                             output_zipped = escr.download_part_alto_transcription(document_pk,
                                                                                   [part.pk for part in document_parts],
                                                                                   t.pk)
@@ -902,7 +912,7 @@ def download_transcriptions(escr, download_folder, output_type="pagexml", projec
                     else:
                         with open(fp,mode="wb") as file:
                             file.write(output_zipped)
-    return fp
+    return fp, escr_documents_cache
 
 
 def add_to_yml(yml_fp, based, link, notes, issues, uri=None):
@@ -1041,6 +1051,7 @@ def add_eScriptorium_files(meta_fp, download_folder, dest_folder,
     print("Connecting to preprod eScriptorium instance...")
     preprod = connect_to_escr(url="https://preprod-escriptorium.openiti.org/", username="peter")
     multivol = dict()
+    escr_documents_cache = None
     with open(meta_fp, mode="r", encoding="utf-8") as file:
         #meta = file.read().splitlines()
         #header = meta[0]
@@ -1103,12 +1114,11 @@ def add_eScriptorium_files(meta_fp, download_folder, dest_folder,
                 else:
                     include_regions = [r for r in include_regions if r]
             try:
-                zip_fp = download_transcriptions(escr, download_folder,
-                                             output_type="pagexml",
-                                             projects=[project,],
-                                             document_names=[doc,],
-                                             transcription_layers=[layer,],
-                                             redownload=redownload)
+                zip_fp, escr_documents_cache = download_transcriptions(
+                    escr, download_folder, output_type="pagexml",
+                    projects=[project,], document_names=[doc,],
+                    transcription_layers=[layer,], redownload=redownload,
+                    escr_documents_cache=escr_documents_cache)
                 if not zip_fp:
                     print("No zip_fp; ABORTING")
                     continue
@@ -1295,6 +1305,9 @@ def connect_to_escr(username=None, password=None, url=None):
 if __name__ == "__main__":
     meta_fp = "meta/OCR_URIs_2022_2023 - ESCRIPTORIUM (4).tsv"
     meta_fp = "meta/OCR_URIs_2022_2023 - ESCRIPTORIUM (5).tsv"
+    meta_fp = "meta/OCR_URIs_2022_2023 - ESCRIPTORIUM (6).tsv"
+    meta_fp = "meta/OCR_URIs_2022_2023 - ESCRIPTORIUM (7).tsv"
+    meta_fp = "meta/OCR_URIs_2022_2023 - ESCRIPTORIUM (8).tsv"
 
     
     
@@ -1305,7 +1318,16 @@ if __name__ == "__main__":
     rows = [(711,712), (713,714), (717,718),
             (742,742), (763,764), (767,767),
             (771,774), (779,779)]
-    rows = [(1156,1156)]
+    rows = [(629,630), (645,646)]
+    rows = [(654,655), (690,691), (695,695), (736,736),
+            (763,768), (784,784)]
+    rows = [(785,787), (793,793), (802,802)]
+    rows = [(862,864)]
+    rows = [(869,869), (871,871), (876,877), (879,879), (881,884), (887,887)]
+    rows = [(871,871)]
+    rows = [(865,865), (897,897), (899,901)]
+    rows = [(1787,1789)]
+    #rows = []
     #for first, last in rows:
     add_eScriptorium_files(meta_fp, download_folder, dest_folder,
                            reconvert=True,               # convert even if the file is already in the corpus or barzakh
@@ -1313,5 +1335,6 @@ if __name__ == "__main__":
                            rows=rows,
                            redownload=False,                # even if the transcription was already downloaded
                            add_languages=["per"],
-                           default_transcription_layer="kraken:all_arabic_scripts"
+                           #default_transcription_layer="kraken:all_arabic_scripts"
+                           default_transcription_layer="kraken:mellon_print_transcription"
                            )
